@@ -1,0 +1,73 @@
+03.07.2015 - dollop
+
+The decoder is built on the base of ATmega88(48/168/328). It is clocked by 16MHz quarz.
+My decoder is capable to:
+* Receive the data stream from the satellite and decode all 8 channels
+* Bind to the Transmitter Hobby King 2.4Ghz V1 (Turborix)
+* Save FailSafe information for all the channels
+* The LED shows the decoder status:
+    - The LED blinks slowly while bind process
+    - The LED blinks fast while in FailSave mode
+    - The LED is solid while normal receive operation
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+The protocol:
+
+Protocol information (by ReSt)
+A start bit is a low bit (0)
+A stop bit is a high bit (1)
+
+A bit is about 23.5 - 24us long.
+The DataRate is 41.66 kBaud.
+The level stays high or low for the full bit length (no return to zero)
+
+There are Data Packets with 8 data bits and others with 16 Data Bits
+Data Packets (8 or 16 bit) are sent with least significant bit first
+16 bit Data Packets (two bytes) are sent with least significant bit first, low byte first
+Data Packets always begin with one start bit (Low level) and end with one stop bit (high level)
+
+8 bit Data Packets consist of 1 start bit, 8 data bits, 1 stop bit
+16 bit Data Packets consist of 1 start bit, 16 data bits, 1 stop bit (no start/stop bits in between)
+
+All the Data Packets are sent over the line low order bit first, low order Byte first
+
+8 bit Data Packets contain binding information (the GUID and the last byte the check-sum)
+
+16 bit Data Packets contain Channel Data 
+Every complete Channel Data block consists of nine 16bit values (8 channels and one check-sum)
+The 16 bit value represents the duration of the corresponding channel servo pulse in microseconds
+The check-sum represents all previous bytes summed up as 16bit numbers
+
+Example of channel data:
+Received: E805 E805 8F04 FD05 CF05 F903 DC05 DC05 DC2B
+Numeric value: 05E8 05E8 048F 05FD 05CF 03F9 05DC 05DC 2BDC
+Check-sum: 05E8+05E8+048F+05FD+05CF+03F9+05DC+05DC=2BDC 
+Channel timing: 1512 1512 1272 1533 1487 1017 1500 1500 [us]
+
+8 bit Data Packets (the binding information) are sent (only once per power on) from the receivers to the decoder board during the bind procedure, and from the decoder board to the receivers during normal power on.
+
+16 bit Data Packets (the Channel Data) are sent every 25ms from both the receivers to the decoder board during normal operation.
+
+Binding procedure:
+Data-line between main and satellite receiver pulled low for 50 - 250ms at power on. This switches the satellite receiver into binding mode (LED blinking, receiver waiting for TX in bind mode)
+Power on the TX with pressed bind button.
+Wait for 10 bytes (8 bit Data Packets, 9 Byte Data and one Byte Check-sum) and store in eeprom.
+The Check-sum is the low order byte of the sum of the previous 8 data bytes.
+There is a pause of 610us from byte to byte
+
+Example of binding information:
+E1 5C 00 00 55 55 55 55 55 E6
+E1+5C+00+00+55+55+55+55+55=2E6 -> Checksum E6
+
+Normal operation when Tx and Rx are bound:
+Don't pull low the dataline between main and satellite receiver on power on
+Binding information is sent to the receiver boards only once at power on (9 bytes are enough, Checksum is not required).
+Without this information, the receivers don't go online
+
+Data Packets with binding information consist of 10 (9 data bytes + one check-sum byte) bytes (8 bit Data Packets). 
+The content of these bytes is exactly the data stream received during the binding procedure (see above).
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
